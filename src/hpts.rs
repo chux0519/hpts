@@ -1,5 +1,6 @@
 use futures::future::try_join;
 use httparse;
+use log::{debug, error, trace};
 use std::error::Error;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -44,7 +45,7 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
     }
     ctx.pos += n;
     if !req.parse(buf).unwrap().is_complete() {
-        eprintln!("incomplete http request");
+        error!("incomplete http request");
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
             "incomplete http request",
@@ -58,6 +59,7 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
         // and just forward in TCP level
         ctx.resend = false;
         port = 443;
+        trace!("https");
     }
 
     let mut socks5_buf = [0; 1024];
@@ -75,9 +77,11 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
         }
     }
 
-    println!("proxy to: {}", host);
+    debug!("proxy to: {}", host);
 
     let n = build_socks5_cmd(&mut socks5_buf, &host, port);
+    trace!("cmd: {:?}", &socks5_buf[0..n]);
+
     socks5_stream.write_all(&&socks5_buf[0..n]).await?;
     // check OK
     socks5_stream.read(&mut socks5_buf).await?;
