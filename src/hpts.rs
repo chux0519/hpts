@@ -1,7 +1,7 @@
 use futures::future::try_join;
 use httparse;
 use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -43,7 +43,6 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
         return Ok(());
     }
     ctx.pos += n;
-    println!("n: {:?}, data: {}", n, &std::str::from_utf8(buf).unwrap());
     if !req.parse(buf).unwrap().is_complete() {
         eprintln!("incomplete http request");
         return Err(Box::new(std::io::Error::new(
@@ -66,24 +65,28 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
     socks5_stream.write_all(&[05, 02, 00, 01]).await?;
     // skip check for now
     socks5_stream.read(&mut socks5_buf).await?;
-    // socks5_stream.write_all(&socks5_buf).await?;
     let mut host = "";
     for i in 0..16 {
         let h = headers[i];
         if h.name.to_lowercase() == "host" {
             host = std::str::from_utf8(h.value).unwrap();
+            host = host.split(":").collect::<Vec<&str>>()[0];
             break;
         }
     }
 
+    println!("proxy to: {}", host);
+
     let n = build_socks5_cmd(&mut socks5_buf, &host, port);
-    println!("cmd: {:?}", &socks5_buf[0..n]);
     socks5_stream.write_all(&&socks5_buf[0..n]).await?;
     // check OK
     socks5_stream.read(&mut socks5_buf).await?;
     // write the first packet
     if ctx.resend {
         socks5_stream.write_all(&ctx.buf).await?;
+    } else {
+        // write 200 back to client
+        ctx.socket.write_all(b"HTTP/1.1 200 OK\r\n\r\n").await?;
     }
 
     // start buffering

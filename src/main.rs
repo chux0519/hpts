@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use std::io;
+use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -8,7 +8,7 @@ mod hpts;
 use hpts::*;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("hpts")
         .version("0.0")
         .author("Yongsheng Xu")
@@ -42,7 +42,8 @@ async fn main() -> io::Result<()> {
     let mut listener = TcpListener::bind(http_proxy_sock).await?;
     loop {
         let (socket, _addr) = listener.accept().await?;
+        println!("accept from client: {}", _addr);
         let ctx = HptsContext::new(config.clone(), socket);
-        hpts_bridge(ctx).await;
+        hpts_bridge(ctx).await?;
     }
 }
