@@ -6,7 +6,7 @@ use tokio::net::TcpListener;
 
 use env_logger::Builder;
 use log::LevelFilter;
-use log::{debug, info};
+use log::{debug, error, info};
 
 mod hpts;
 use hpts::*;
@@ -65,6 +65,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let (socket, _addr) = listener.accept().await?;
         debug!("accept from client: {}", _addr);
         let ctx = HptsContext::new(config.clone(), socket);
-        hpts_bridge(ctx).await?;
+        match hpts_bridge(ctx).await {
+            Ok(()) => {}
+            Err(err) => error!("{}", err),
+        };
     }
 }
