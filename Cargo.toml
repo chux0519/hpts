@@ -1,6 +1,6 @@
 [package]
 name = "hpts"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["hexyoungs <chuxdesign@hotmail.com>"]
 description = "hpts(http-proxy-to-socks) is a tool to convert socks proxy into http proxy"
 license = "BSD-3-Clause"

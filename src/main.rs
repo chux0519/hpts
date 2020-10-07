@@ -1,4 +1,5 @@
 use clap::{App, Arg};
+use futures::FutureExt;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -47,7 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config = Arc::new(HptsConfig { socks5_addr: socks });
 
     let port: u16 = matches.value_of("port").unwrap_or("8080").parse().unwrap();
-    let http_proxy_sock = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let http_proxy_sock = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
     let level = match matches.occurrences_of("v") {
         0 => LevelFilter::Error,
         1 => LevelFilter::Info,
@@ -65,9 +66,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let (socket, _addr) = listener.accept().await?;
         debug!("accept from client: {}", _addr);
         let ctx = HptsContext::new(config.clone(), socket);
-        match hpts_bridge(ctx).await {
-            Ok(()) => {}
-            Err(err) => error!("{}", err),
-        };
+        let task = hpts_bridge(ctx).map(|r| {
+            if let Err(e) = r {
+                error!("{}", e);
+            }
+        });
+        tokio::spawn(task);
     }
 }
