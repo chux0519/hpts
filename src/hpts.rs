@@ -72,12 +72,16 @@ pub(crate) async fn hpts_bridge(ctx: HptsContext) -> Result<(), Box<dyn Error>> 
         let h = headers[i];
         if h.name.to_lowercase() == "host" {
             host = std::str::from_utf8(h.value).unwrap();
-            host = host.split(":").collect::<Vec<&str>>()[0];
+            let host_port = host.split(":").collect::<Vec<&str>>();
+            host = host_port[0];
+            if host_port.len() > 1 {
+                port = host_port[1].parse().unwrap();
+            }
             break;
         }
     }
 
-    debug!("proxy to: {}", host);
+    debug!("proxy to: {}:{}", host, port);
 
     let n = build_socks5_cmd(&mut socks5_buf, &host, port);
     trace!("cmd: {:?}", &socks5_buf[0..n]);
